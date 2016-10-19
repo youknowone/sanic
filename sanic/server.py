@@ -122,8 +122,8 @@ class HttpProtocol(asyncio.Protocol):
 
     def write_response(self, response):
         try:
-            keep_alive = all(
-                [self.parser.should_keep_alive(), self.signal.stopped])
+            keep_alive = self.parser.should_keep_alive() \
+                            and not self.signal.stopped
             self.transport.write(
                 response.output(
                     self.request.version, keep_alive, self.request_timeout))
@@ -158,8 +158,8 @@ class HttpProtocol(asyncio.Protocol):
 
 
 def serve(host, port, request_handler, after_start=None, before_stop=None,
-          debug=False, request_timeout=60,
-          request_max_size=None):
+          debug=False, request_timeout=60, sock=None,
+          request_max_size=None, reuse_port=False):
     # Create Event Loop
     loop = async_loop.new_event_loop()
     asyncio.set_event_loop(loop)
@@ -176,7 +176,7 @@ def serve(host, port, request_handler, after_start=None, before_stop=None,
         request_handler=request_handler,
         request_timeout=request_timeout,
         request_max_size=request_max_size,
-    ), host, port)
+    ), host, port, reuse_port=reuse_port, sock=sock)
     try:
         http_server = loop.run_until_complete(server_coroutine)
     except Exception as e:
@@ -217,4 +217,3 @@ def serve(host, port, request_handler, after_start=None, before_stop=None,
             loop.run_until_complete(asyncio.sleep(0.1))
 
         loop.close()
-        logging.info("Server Stopped")

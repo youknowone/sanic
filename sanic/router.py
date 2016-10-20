@@ -14,11 +14,14 @@ REGEX_TYPES = {
     'alpha': (str, r'[A-Za-z]+'),
 }
 
+
 def url_hash(url):
     return url.count('/')
 
+
 class RouteExists(Exception):
     pass
+
 
 class Router:
     """
@@ -54,14 +57,14 @@ class Router:
         :return: Nothing
         """
         if uri in self.routes_all:
-            raise RouteExists("A route is already registered to {}".format(uri))
+            raise RouteExists("Route already registered: {}".format(uri))
 
         # Dict for faster lookups of if method allowed
         if methods:
             methods = frozenset(methods)
 
         parameters = []
-        properties = { "unhashable": None }
+        properties = {"unhashable": None}
 
         def add_parameter(match):
             # We could receive NAME or NAME:PATTERN
@@ -96,7 +99,6 @@ class Router:
             self.routes_dynamic[url_hash(uri)].append(route)
         else:
             self.routes_static[uri] = route
-
 
     def get(self, request):
         """

@@ -18,19 +18,19 @@ async def local_request(method, uri, cookies=None, *args, **kwargs):
 def sanic_endpoint_test(app, method='get', uri='/', gather_request=True,
                         loop=None, debug=False, *request_args,
                         **request_kwargs):
-    results = []
+    results = [..., ...]
     exceptions = []
 
     if gather_request:
         @app.middleware
         def _collect_request(request):
-            results.append(request)
+            results[0] = request
 
     async def _collect_response(sanic, loop):
         try:
             response = await local_request(method, uri, *request_args,
                                            **request_kwargs)
-            results.append(response)
+            results[1] = response
         except Exception as e:
             exceptions.append(e)
         app.stop()
@@ -51,7 +51,7 @@ def sanic_endpoint_test(app, method='get', uri='/', gather_request=True,
                     results))
     else:
         try:
-            return results[0]
+            return results[1]
         except:
             raise ValueError(
                 "Request object expected, got ({})".format(results))

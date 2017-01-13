@@ -14,6 +14,8 @@ REGEX_TYPES = {
     'alpha': (str, r'[A-Za-z]+'),
 }
 
+DEFAULT_METHODS = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH']
+
 
 def url_hash(url):
     return url.count('/')
@@ -51,6 +53,7 @@ class Router:
     routes_always_check = None
 
     def __init__(self):
+        self.routes_405 = {}
         self.routes_all = {}
         self.routes_static = {}
         self.routes_dynamic = defaultdict(list)
@@ -67,7 +70,6 @@ class Router:
         When executed, it should provide a response object.
         :return: Nothing
         """
-
         if host is not None:
             # we want to track if there are any
             # vhosts on the Router instance so that we can
@@ -78,12 +80,17 @@ class Router:
                 self.hosts.add(host)
             uri = host + uri
 
-        if uri in self.routes_all:
-            raise RouteExists("Route already registered: {}".format(uri))
-
         # Dict for faster lookups of if method allowed
         if methods:
-            methods = frozenset(methods)
+            # Force methods always to be upper
+            methods = frozenset([method.upper() for method in methods])
+        else:
+            methods = DEFAULT_METHODS
+
+        for method in methods:
+            if (uri, method) in self.routes_all:
+                raise RouteExists(
+                    "Route already registered: {} [{}]".format(uri, method))
 
         parameters = []
         properties = {"unhashable": None}
@@ -117,29 +124,56 @@ class Router:
             handler=handler, methods=methods, pattern=pattern,
             parameters=parameters)
 
-        self.routes_all[uri] = route
+        for method in methods:
+            self.routes_all[uri, method] = route
+
         if properties['unhashable']:
             self.routes_always_check.append(route)
-        elif parameters:
-            self.routes_dynamic[url_hash(uri)].append(route)
         else:
-            self.routes_static[uri] = route
+            for method in methods:
+                if parameters:
+                    self.routes_dynamic[url_hash(uri), method].append(route)
+                else:
+                    self.routes_static[uri, method] = route
 
-    def remove(self, uri, clean_cache=True, host=None):
+    def remove(self, uri, clean_cache=True, methods=None, host=None):
+        if methods is None:
+            target_methods = DEFAULT_METHODS
+        else:
+            target_methods = [method.upper() for method in methods]
+
         if host is not None:
             uri = host + uri
-        try:
-            route = self.routes_all.pop(uri)
-        except KeyError:
+
+        routes = {}
+        for method in target_methods:
+            try:
+                routes[method] = self.routes_all.pop((uri, method))
+            except KeyError:
+                if methods is not None:
+                    raise RouteDoesNotExist(
+                        "Route was not registered: {} [{}]".format(uri, method))
+        if not routes:
             raise RouteDoesNotExist("Route was not registered: {}".format(uri))
 
-        if route in self.routes_always_check:
-            self.routes_always_check.remove(route)
-        elif url_hash(uri) in self.routes_dynamic \
-                and route in self.routes_dynamic[url_hash(uri)]:
-            self.routes_dynamic[url_hash(uri)].remove(route)
-        else:
-            self.routes_static.pop(uri)
+        deleted_methods = []
+        deleted_routes = []
+        for method, route in routes.items():
+            if route in deleted_routes:
+                deleted_methods.append(method)
+            elif route in self.routes_always_check:
+                self.routes_always_check.remove(route)
+                deleted_methods.append(method)
+                deleted_routes.append(route)
+            elif (url_hash(uri), method) in self.routes_dynamic \
+                    and route in self.routes_dynamic[url_hash(uri), method]:
+                self.routes_dynamic[url_hash(uri), method].remove(route)
+                deleted_methods.append(method)
+
+        for method in routes:
+            if method in deleted_methods:
+                continue
+            self.routes_static.pop((uri, method))
 
         if clean_cache:
             self._get.cache_clear()
@@ -168,12 +202,12 @@ class Router:
         """
         url = host + url
         # Check against known static routes
-        route = self.routes_static.get(url)
+        route = self.routes_static.get((url, method))
         if route:
             match = route.pattern.match(url)
         else:
             # Move on to testing all regex routes
-            for route in self.routes_dynamic[url_hash(url)]:
+            for route in self.routes_dynamic[url_hash(url), method]:
                 match = route.pattern.match(url)
                 if match:
                     break

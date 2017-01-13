@@ -463,3 +463,22 @@ def test_remove_route_without_clean_cache():
 
     request, response = sanic_endpoint_test(app, uri='/test')
     assert response.status == 200
+
+
+def test_overload_routes():
+    app = Sanic('test_dynamic_route')
+
+    @app.route('/overload', methods=['GET'])
+    async def handler1(request):
+        return text('OK1')
+
+    @app.route('/overload', methods=['POST'])
+    async def handler2(request):
+        return text('OK2')
+
+    request, response = sanic_endpoint_test(app, 'get', uri='/overload')
+    assert response.text == 'OK1'
+
+    request, response = sanic_endpoint_test(app, 'post', uri='/overload')
+    assert response.text == 'OK2'
+

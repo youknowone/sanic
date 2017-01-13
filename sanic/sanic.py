@@ -12,6 +12,7 @@ from .exceptions import Handler
 from .log import log
 from .response import HTTPResponse
 from .router import Router
+from .views import CompositionView
 from .server import serve, HttpProtocol
 from .static import register as static_register
 from .exceptions import ServerError
@@ -81,7 +82,8 @@ class Sanic:
         :param methods: list or tuple of methods allowed
         :return: function or class instance
         """
-        self.route(uri=uri, methods=methods, host=host)(handler)
+        self.route(
+            uri=uri, methods=methods, host=host)(handler)
         return handler
 
     def remove_route(self, uri, clean_cache=True, host=None):

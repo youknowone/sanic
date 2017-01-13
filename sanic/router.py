@@ -3,6 +3,7 @@ from collections import defaultdict, namedtuple
 from functools import lru_cache
 from .config import Config
 from .exceptions import NotFound, InvalidUsage
+from .views import CompositionView
 
 Route = namedtuple('Route', ['handler', 'methods', 'pattern', 'parameters'])
 Parameter = namedtuple('Parameter', ['name', 'cast'])
@@ -57,7 +58,7 @@ class Router:
         self.routes_always_check = []
         self.hosts = None
 
-    def add(self, uri, methods, handler, host=None):
+    def add(self, uri, methods, handler, overload=False, host=None):
         """
         Adds a handler to the route list
         :param uri: Path to match
@@ -77,9 +78,6 @@ class Router:
             else:
                 self.hosts.add(host)
             uri = host + uri
-
-        if uri in self.routes_all:
-            raise RouteExists("Route already registered: {}".format(uri))
 
         # Dict for faster lookups of if method allowed
         if methods:
@@ -113,9 +111,28 @@ class Router:
         pattern_string = re.sub(r'<(.+?)>', add_parameter, uri)
         pattern = re.compile(r'^{}$'.format(pattern_string))
 
-        route = Route(
-            handler=handler, methods=methods, pattern=pattern,
-            parameters=parameters)
+        route = self.routes_all.get(uri)
+        if route:
+            if not route.methods or not methods:
+                raise RouteExists(
+                    "Route already registered: {}".format(uri))
+            elif route.methods.intersection(methods):
+                duplicated = methods.intersection(route.methods)
+                raise RouteExists(
+                    "Route already registered: {} [{}]".format(
+                        uri, ','.join(list(duplicated))))
+            if isinstance(route.handler, CompositionView):
+                view = route.handler
+            else:
+                view = CompositionView()
+                view.add(route.methods, route.handler)
+            view.add(methods, handler)
+            route = route._replace(
+                handler=view, methods=methods.union(route.methods))
+        else:
+            route = Route(
+                handler=handler, methods=methods, pattern=pattern,
+                parameters=parameters)
 
         self.routes_all[uri] = route
         if properties['unhashable']:

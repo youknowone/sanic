@@ -3,7 +3,7 @@ from bs4 import BeautifulSoup
 
 from sanic import Sanic
 from sanic.response import text
-from sanic.exceptions import InvalidUsage, ServerError, NotFound
+from sanic.exceptions import InvalidUsage, ServerError, NotFound, abort
 from sanic.utils import sanic_endpoint_test
 
 
@@ -42,6 +42,10 @@ def exception_app():
     @app.exception(SanicExceptionTestException)
     def error_in_error_handler_handler(request, exception):
         1 / 0
+
+    @app.route('/abort_function')
+    def handler_abort_function(request):
+        abort(406)
 
     return app
 
@@ -110,3 +114,12 @@ def test_exception_in_exception_handler_debug_off(exception_app):
         debug=True)
     assert response.status == 500
     assert response.body.startswith(b'Exception raised in exception ')
+
+
+def test_abort_function(exception_app):
+    """Test that an exception thrown by abort works."""
+    request, response = sanic_endpoint_test(
+        exception_app,
+        uri='/abort_function',
+        debug=True)
+    assert response.status == 406

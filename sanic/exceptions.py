@@ -202,3 +202,7 @@ class Handler:
             return html(html_output, status=500)
         else:
             return html(INTERNAL_SERVER_ERROR_HTML, status=500)
+
+
+def abort(status, message=None):
+    raise SanicException(message, status_code=status)

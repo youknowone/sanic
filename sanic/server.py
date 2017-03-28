@@ -344,9 +344,12 @@ def serve(host, port, request_handler, error_handler, before_start=None,
     trigger_events(after_start, loop)
 
     # Register signals for graceful termination
-    if register_sys_signals:
-        for _signal in (SIGINT, SIGTERM):
-            loop.add_signal_handler(_signal, loop.stop)
+    try:
+        if register_sys_signals:
+            for _signal in (SIGINT, SIGTERM):
+                loop.add_signal_handler(_signal, loop.stop)
+    except Exception:
+        pass
 
     pid = os.getpid()
     try:

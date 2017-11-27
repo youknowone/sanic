@@ -850,3 +850,32 @@ def test_unmergeable_overload_routes():
 
     request, response = app.test_client.post('/overload_part')
     assert response.status == 405
+
+
+def test_overload_dynamic_routes():
+    app = Sanic('test_dynamic_route')
+
+    @app.route('/overload/<param>', methods=['GET'])
+    async def handler1(request, param):
+        return text('OK1: ' + str(param))
+
+    @app.route('/overload/<param>', methods=['POST', 'PUT'])
+    async def handler2(request, param):
+        return text('OK2: ' + str(param))
+
+    request, response = sanic_endpoint_test(app, 'get', uri='/overload/bla')
+    assert response.text == 'OK1: bla'
+
+    request, response = sanic_endpoint_test(app, 'post', uri='/overload/bla')
+    assert response.text == 'OK2: bla'
+
+    request, response = sanic_endpoint_test(app, 'put', uri='/overload/bla')
+    assert response.text == 'OK2: bla'
+
+    request, response = sanic_endpoint_test(app, 'delete', uri='/overload')
+    assert response.status == 405
+
+    with pytest.raises(RouteExists):
+        @app.route('/overload', methods=['PUT', 'DELETE'])
+        async def handler3(request):
+            return text('Duplicated')

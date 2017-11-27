@@ -108,7 +108,6 @@ class HttpProtocol(asyncio.Protocol):
         self._request_handler_task = None
         self._request_stream_task = None
         self._keep_alive = keep_alive
-        self._header_fragment = b''
         self.state = state if state else {}
         if 'requests_count' not in self.state:
             self.state['requests_count'] = 0
@@ -232,21 +231,10 @@ class HttpProtocol(asyncio.Protocol):
             self.url += url
 
     def on_header(self, name, value):
-        self._header_fragment += name
-
-        if value is not None:
-            if self._header_fragment == b'Content-Length' \
-                    and int(value) > self.request_max_size:
-                exception = PayloadTooLarge('Payload Too Large')
-                self.write_error(exception)
-            try:
-                value = value.decode()
-            except UnicodeDecodeError:
-                value = value.decode('latin_1')
-            self.headers.append(
-                    (self._header_fragment.decode().casefold(), value))
-
-            self._header_fragment = b''
+        if name == b'Content-Length' and int(value) > self.request_max_size:
+            exception = PayloadTooLarge('Payload Too Large')
+            self.write_error(exception)
+        self.headers.append((name.decode().casefold(), value.decode()))
 
     def on_headers_complete(self):
         self.request = self.request_class(

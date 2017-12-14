@@ -33,6 +33,10 @@ from sanic.exceptions import (
 
 current_time = None
 
+f = open('sanic.log', 'w')
+def log(*args):
+    f.write(' '.join(map(str, args)) + '\n')
+    f.flush()
 
 class Signal:
     stopped = False
@@ -105,6 +109,9 @@ class HttpProtocol(asyncio.Protocol):
         self._keep_alive_timeout_handler = None
         self._last_request_time = None
         self._last_response_time = None
+        import traceback
+        log(self, 'init')
+        log(self, '\n'.join(traceback.format_stack()))
         self._request_handler_task = None
         self._request_stream_task = None
         self._keep_alive = keep_alive
@@ -159,8 +166,11 @@ class HttpProtocol(asyncio.Protocol):
             if self._request_handler_task:
                 self._request_handler_task.cancel()
             try:
+                log(self, self._request_handler_task)
                 raise RequestTimeout('Request Timeout')
             except RequestTimeout as exception:
+                self.write_error(exception)
+            except Exception as exception:
                 self.write_error(exception)
 
     def response_timeout_callback(self):
@@ -244,7 +254,7 @@ class HttpProtocol(asyncio.Protocol):
             except UnicodeDecodeError:
                 value = value.decode('latin_1')
             self.headers.append(
-                    (self._header_fragment.decode().casefold(), value))
+                (self._header_fragment.decode().casefold(), value))
 
             self._header_fragment = b''
 
@@ -270,6 +280,7 @@ class HttpProtocol(asyncio.Protocol):
 
     def on_body(self, body):
         if self.is_request_stream and self._is_stream_handler:
+            log(self, 'onbody')
             self._request_stream_task = self.loop.create_task(
                 self.request.stream.put(body))
             return
@@ -282,6 +293,7 @@ class HttpProtocol(asyncio.Protocol):
             self._request_timeout_handler.cancel()
             self._request_timeout_handler = None
         if self.is_request_stream and self._is_stream_handler:
+            log(self, 'onmessage')
             self._request_stream_task = self.loop.create_task(
                 self.request.stream.put(None))
             return
@@ -292,11 +304,13 @@ class HttpProtocol(asyncio.Protocol):
         self._response_timeout_handler = self.loop.call_later(
             self.response_timeout, self.response_timeout_callback)
         self._last_request_time = current_time
+        log(self, 'execute')
         self._request_handler_task = self.loop.create_task(
             self.request_handler(
                 self.request,
                 self.write_response,
                 self.stream_response))
+        log(self, self._request_handler_task)
 
     # -------------------------------------------- #
     # Responding
@@ -361,6 +375,7 @@ class HttpProtocol(asyncio.Protocol):
                     self.keep_alive_timeout,
                     self.keep_alive_timeout_callback)
                 self._last_response_time = current_time
+                log(self, 'c1')
                 self.cleanup()
 
     async def stream_response(self, response):
@@ -401,6 +416,7 @@ class HttpProtocol(asyncio.Protocol):
                     self.keep_alive_timeout,
                     self.keep_alive_timeout_callback)
                 self._last_response_time = current_time
+                log(self, 'c2')
                 self.cleanup()
 
     def write_error(self, exception):
@@ -448,6 +464,7 @@ class HttpProtocol(asyncio.Protocol):
         self.request = None
         self.url = None
         self.headers = None
+        log(self, 'cleanup')
         self._request_handler_task = None
         self._request_stream_task = None
         self._total_request_size = 0

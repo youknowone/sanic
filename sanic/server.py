@@ -512,7 +512,7 @@ def serve(host, port, request_handler, error_handler, before_start=None,
           signal=Signal(), request_class=None, access_log=True,
           keep_alive=True, is_request_stream=False, router=None,
           websocket_max_size=None, websocket_max_queue=None, state=None,
-          graceful_shutdown_timeout=15.0):
+          graceful_shutdown_timeout=15.0, unix_socket=None):
     """Start asynchronous HTTP Server on an individual process.
 
     :param host: Address to host on
@@ -575,15 +575,24 @@ def serve(host, port, request_handler, error_handler, before_start=None,
         debug=debug,
     )
 
-    server_coroutine = loop.create_server(
-        server,
-        host,
-        port,
-        ssl=ssl,
-        reuse_port=reuse_port,
-        sock=sock,
-        backlog=backlog
-    )
+    if unix_socket is not None:
+        server_coroutine = loop.create_unix_server(
+            server,
+            unix_socket,
+            ssl=ssl,
+            sock=sock,
+            backlog=backlog
+        )
+    else:
+        server_coroutine = loop.create_server(
+            server,
+            host,
+            port,
+            ssl=ssl,
+            reuse_port=reuse_port,
+            sock=sock,
+            backlog=backlog
+        )
 
     # Instead of pulling time at the end of every request,
     # pull it once per minute

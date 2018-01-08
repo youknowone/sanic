@@ -617,7 +617,7 @@ class Sanic:
     def run(self, host=None, port=None, debug=False, ssl=None,
             sock=None, workers=1, protocol=None,
             backlog=100, stop_event=None, register_sys_signals=True,
-            access_log=True):
+            access_log=True, unix_socket=None):
         """Run the HTTP Server and listen until keyboard interrupt or term
         signal. On termination, drain connections before closing.
 
@@ -651,7 +651,7 @@ class Sanic:
             host=host, port=port, debug=debug, ssl=ssl, sock=sock,
             workers=workers, protocol=protocol, backlog=backlog,
             register_sys_signals=register_sys_signals,
-            access_log=access_log)
+            access_log=access_log, unix_socket=unix_socket)
 
         try:
             self.is_running = True
@@ -678,7 +678,7 @@ class Sanic:
     async def create_server(self, host=None, port=None, debug=False,
                             ssl=None, sock=None, protocol=None,
                             backlog=100, stop_event=None,
-                            access_log=True):
+                            access_log=True, unix_socket=None):
         """Asynchronous version of `run`.
 
         NOTE: This does not support multiprocessing and is not the preferred
@@ -701,7 +701,7 @@ class Sanic:
             host=host, port=port, debug=debug, ssl=ssl, sock=sock,
             loop=get_event_loop(), protocol=protocol,
             backlog=backlog, run_async=True,
-            access_log=access_log)
+            access_log=access_log, unix_socket=None)
 
         # Trigger before_start events
         await self.trigger_events(
@@ -746,7 +746,8 @@ class Sanic:
     def _helper(self, host=None, port=None, debug=False,
                 ssl=None, sock=None, workers=1, loop=None,
                 protocol=HttpProtocol, backlog=100, stop_event=None,
-                register_sys_signals=True, run_async=False, access_log=True):
+                register_sys_signals=True, run_async=False, access_log=True,
+                unix_socket=None):
         """Helper function used by `run` and `create_server`."""
         if isinstance(ssl, dict):
             # try common aliaseses
@@ -773,6 +774,7 @@ class Sanic:
             'router': self.router,
             'host': host,
             'port': port,
+            'unix_socket': unix_socket,
             'sock': sock,
             'ssl': ssl,
             'signal': Signal(),

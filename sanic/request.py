@@ -196,6 +196,8 @@ class Request(dict):
             self._socket = (self.transport.get_extra_info('peername') or
                             (None, None, None, None))
             self._ip, self._port, *_ = self._socket
+        elif sock.family == socket.AF_UNIX:
+            self._ip, self._port = '127.0.0.1', None
         else:
             self._ip, self._port = (None, None)
 

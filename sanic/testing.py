@@ -8,9 +8,10 @@ PORT = 42101
 
 
 class SanicTestClient:
-    def __init__(self, app, port=PORT):
+    def __init__(self, app, port=PORT, unix_socket=None):
         self.app = app
         self.port = port
+        self.unix_socket = unix_socket
 
     async def _local_request(self, method, uri, cookies=None, *args, **kwargs):
         import aiohttp
@@ -21,7 +22,10 @@ class SanicTestClient:
                 host=HOST, port=self.port, uri=uri)
 
         logger.info(url)
-        conn = aiohttp.TCPConnector(verify_ssl=False)
+        if self.unix_socket is not None:
+            conn = aiohttp.UnixConnector(self.unix_socket)
+        else:
+            conn = aiohttp.TCPConnector(verify_ssl=False)
         async with aiohttp.ClientSession(
                 cookies=cookies, connector=conn) as session:
             async with getattr(
@@ -67,7 +71,9 @@ class SanicTestClient:
                 exceptions.append(e)
             self.app.stop()
 
-        self.app.run(host=HOST, debug=debug, port=self.port, **server_kwargs)
+        self.app.run(
+            host=HOST, debug=debug, port=self.port,
+            unix_socket=self.unix_socket, **server_kwargs)
         self.app.listeners['after_server_start'].pop()
 
         if exceptions:
